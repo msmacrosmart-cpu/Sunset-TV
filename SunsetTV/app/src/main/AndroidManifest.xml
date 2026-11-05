@@ -5,6 +5,9 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <application
         android:label="@string/app_name"
+        android:banner="@drawable/tv_banner"
+        android:icon="@drawable/tv_banner"
+        android:allowBackup="false"
         android:theme="@style/Theme.SunsetTv"
         android:usesCleartextTraffic="true">
         <activity
