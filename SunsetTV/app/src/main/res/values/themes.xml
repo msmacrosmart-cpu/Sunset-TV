@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.SunsetTv" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#111113</item>
+        <item name="android:statusBarColor">#111113</item>
+        <item name="android:navigationBarColor">#111113</item>
+    </style>
+</resources>
