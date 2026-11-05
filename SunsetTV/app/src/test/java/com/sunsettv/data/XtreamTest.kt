@@ -1,9 +1,9 @@
 package com.sunsettv.data
 
-import com.sun.net.httpserver.HttpServer
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.MockResponse
 import org.junit.Assert.*
 import org.junit.Test
-import java.net.InetSocketAddress
 
 class XtreamTest {
     @Test fun credentialsAreEncodedInQueryAndStreamPaths() {
@@ -14,15 +14,11 @@ class XtreamTest {
     }
 
     private fun server(response: String, block: (Xtream) -> Unit) {
-        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/player_api.php") { exchange ->
-            val bytes = response.toByteArray()
-            exchange.sendResponseHeaders(200, bytes.size.toLong())
-            exchange.responseBody.use { it.write(bytes) }
-        }
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(response))
         server.start()
-        try { block(Xtream("http://127.0.0.1:${server.address.port}", "user", "pass")) }
-        finally { server.stop(0) }
+        try { block(Xtream(server.url("/").toString().trimEnd('/'), "user", "pass")) }
+        finally { server.shutdown() }
     }
 
     @Test fun acceptsActiveAccount() = server("""{"user_info":{"auth":1,"status":"Active"}}""") { assertTrue(it.authOk()) }

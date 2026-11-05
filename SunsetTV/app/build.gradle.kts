@@ -22,6 +22,7 @@ android {
     buildTypes { release { isMinifyEnabled = false } }
 }
 dependencies {
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
