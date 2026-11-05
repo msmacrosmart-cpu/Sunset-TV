@@ -1,5 +1,8 @@
 package com.sunsettv.ui
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -38,22 +41,23 @@ fun LoginScreen(onLoggedIn: (Library) -> Unit) {
         if (url.isBlank() || user.isBlank() || pass.isBlank()) { err = "Preencha servidor, usuário e senha"; return }
         loading = true; err = null
         scope.launch {
-            try { onLoggedIn(Repo.xtream(url, user.trim(), pass.trim())) }
-            catch (e: Exception) { err = e.message ?: "Falha na conexão" }
+            try { onLoggedIn(Repo.xtream(url, user.trim(), pass)) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { err = "Não foi possível entrar. Verifique URL, credenciais e conexão. " + if (e is IllegalArgumentException) e.message.orEmpty() else "Tente novamente." }
             loading = false
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Bg), Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(Bg).imePadding().verticalScroll(rememberScrollState()).padding(16.dp), Alignment.Center) {
         Column(
-            Modifier.width(440.dp).clip(shape)
+            Modifier.widthIn(max = 440.dp).fillMaxWidth().clip(shape)
                 .background(Brush.verticalGradient(listOf(Color(0x44FF4D5E), Color(0x14FFFFFF), Color(0x08FFFFFF))))
                 .border(1.dp, Sunset, shape).padding(32.dp),
             Arrangement.spacedBy(14.dp), Alignment.CenterHorizontally
         ) {
             Text("Bem-vindo", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Medium)
             Text("Entre com sua conta Xtream Codes", color = Muted, fontSize = 12.sp)
-            GlassField("Servidor (http://host:porta)", url, { url = it })
+            GlassField("URL (http://host:porta)", url, { url = it })
             GlassField("Usuário", user, { user = it })
             GlassField("Senha", pass, { pass = it }, password = true)
             err?.let { Text(it, color = Color(0xFFFF6B6B), fontSize = 12.sp) }

@@ -9,6 +9,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
+import kotlinx.coroutines.CancellationException
 
 data class Channel(val name: String, val url: String, val logo: String?, val group: String, val id: String? = null)
 data class Media(val id: String, val name: String, val poster: String?, val category: String, val url: String, val series: Boolean = false)
@@ -17,8 +19,11 @@ data class Library(val live: List<Channel>, val movies: List<Media>, val series:
 
 internal fun httpGet(u: String): String {
     val c = URL(u).openConnection() as HttpURLConnection
-    c.connectTimeout = 15000; c.readTimeout = 60000
-    return c.inputStream.bufferedReader().use { it.readText() }
+    c.connectTimeout = 15000; c.readTimeout = 30000
+    return try {
+        require(c.responseCode in 200..299) { "Servidor indisponível (HTTP ${c.responseCode})" }
+        c.inputStream.bufferedReader().use { it.readText() }
+    } finally { c.disconnect() }
 }
 
 object M3u {
@@ -42,14 +47,20 @@ object M3u {
     }
 }
 
-class Xtream(val base: String, val user: String, val pass: String) {
+internal fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+class Xtream(val base: String, username: String, password: String) {
+    val user = encode(username)
+    val pass = encode(password)
     internal val api = "$base/player_api.php?username=$user&password=$pass"
     private fun arr(a: String) = JSONArray(httpGet("$api&action=$a"))
     private fun cats(a: String): Map<String, String> {
         val c = arr(a)
         return (0 until c.length()).associate { c.getJSONObject(it).getString("category_id") to c.getJSONObject(it).getString("category_name") }
     }
-    fun authOk() = JSONObject(httpGet(api)).optJSONObject("user_info")?.optInt("auth", 0) == 1
+    fun authOk(): Boolean {
+        val info = JSONObject(httpGet(api)).optJSONObject("user_info") ?: return false
+        return info.optInt("auth", 0) == 1 && info.optString("status", "Active").equals("Active", true)
+    }
 
     fun live(): List<Channel> {
         val c = cats("get_live_categories"); val s = arr("get_live_streams")
@@ -81,7 +92,7 @@ class Xtream(val base: String, val user: String, val pass: String) {
         (0 until l.length()).map {
             val o = l.getJSONObject(it)
             Epg(b64(o.optString("title")), b64(o.optString("description")),
-                o.optString("start_timestamp").toLong() * 1000, o.optString("stop_timestamp").toLong() * 1000)
+                o.optString("start_timestamp").toLongOrNull().let { it ?: 0L } * 1000, o.optString("stop_timestamp").toLongOrNull().let { it ?: 0L } * 1000)
         }
     }
     suspend fun firstEpisode(seriesId: String): String? = withContext(Dispatchers.IO) {
@@ -100,12 +111,14 @@ object Repo {
     }
 
     suspend fun xtream(server: String, user: String, pass: String): Library = coroutineScope {
-        val base = server.trim().trimEnd('/').let { if (it.startsWith("http")) it else "http://$it" }
+        val base = server.trim().trimEnd('/').let { if ("://" in it) it else "http://$it" }
+        val parsed = java.net.URI(base)
+        require(parsed.scheme in listOf("http", "https") && !parsed.host.isNullOrBlank() && parsed.rawQuery == null && parsed.rawUserInfo == null) { "URL inválida. Use http://servidor:porta" }
         val x = Xtream(base, user, pass)
         require(withContext(Dispatchers.IO) { x.authOk() }) { "Credenciais inválidas" }
         val l = async(Dispatchers.IO) { x.live() }
-        val m = async(Dispatchers.IO) { runCatching { x.movies() }.getOrDefault(emptyList()) }
-        val s = async(Dispatchers.IO) { runCatching { x.series() }.getOrDefault(emptyList()) }
+        val m = async(Dispatchers.IO) { x.movies() }
+        val s = async(Dispatchers.IO) { x.series() }
         Library(l.await(), m.await(), s.await(), x)
     }
 }

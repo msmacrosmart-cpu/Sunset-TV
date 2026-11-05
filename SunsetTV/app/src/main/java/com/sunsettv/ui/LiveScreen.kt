@@ -2,6 +2,7 @@ package com.sunsettv.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -10,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -31,6 +33,7 @@ private fun t(ms: Long) = hm.format(Date(ms))
 
 @Composable
 fun LiveScreen(lib: Library, onPlay: (Channel) -> Unit) {
+    val compact = LocalConfiguration.current.screenWidthDp < 840
     val cats = remember(lib) { lib.live.map { it.group }.distinct() }
     var cat by remember { mutableStateOf(cats.firstOrNull() ?: "") }
     val list = remember(cat, lib) { lib.live.filter { it.group == cat } }
@@ -45,9 +48,27 @@ fun LiveScreen(lib: Library, onPlay: (Channel) -> Unit) {
         if (api != null && id != null) epg = runCatching { api.epg(id) }.getOrDefault(emptyList())
     }
 
-    Row(Modifier.fillMaxSize().padding(24.dp), Arrangement.spacedBy(16.dp)) {
+    if (compact) {
+        Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("TV ao vivo", color = Color.White, fontSize = 24.sp)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(4.dp)) {
+                items(cats) { c -> Pill(c, c == cat) { cat = c } }
+            }
+            if (list.isEmpty()) Text("Nenhum canal disponível.", color = Muted)
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(list) { c ->
+                    Row(Modifier.fillMaxWidth().tvClickable { onPlay(c) }.background(Panel).padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        AsyncImage(c.logo, null, Modifier.size(40.dp))
+                        Text(c.name, color = Color.White, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+        return
+    }
+    Row(Modifier.fillMaxSize().padding(16.dp), Arrangement.spacedBy(12.dp)) {
         // Coluna 1: categorias
-        Column(Modifier.width(210.dp).fillMaxHeight().background(Panel, RoundedCornerShape(16.dp)).padding(12.dp)) {
+        Column(Modifier.weight(0.25f).fillMaxHeight().background(Panel, RoundedCornerShape(16.dp)).padding(12.dp)) {
             Text("CATEGORIAS", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(8.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(cats) { c ->
@@ -60,7 +81,7 @@ fun LiveScreen(lib: Library, onPlay: (Channel) -> Unit) {
             }
         }
         // Coluna 2: canais
-        Column(Modifier.width(330.dp).fillMaxHeight().background(Panel, RoundedCornerShape(16.dp)).padding(12.dp)) {
+        Column(Modifier.weight(0.34f).fillMaxHeight().background(Panel, RoundedCornerShape(16.dp)).padding(12.dp)) {
             Text("CANAIS", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(8.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 itemsIndexed(list) { i, c ->
@@ -78,7 +99,7 @@ fun LiveScreen(lib: Library, onPlay: (Channel) -> Unit) {
             }
         }
         // Coluna 3: EPG
-        Column(Modifier.weight(1f).fillMaxHeight().background(Panel, RoundedCornerShape(16.dp)).padding(24.dp), Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(0.41f).fillMaxHeight().background(Panel, RoundedCornerShape(16.dp)).padding(24.dp), Arrangement.spacedBy(10.dp)) {
             Text(ch?.name ?: "", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             val now = System.currentTimeMillis()
             val cur = epg.firstOrNull { now in it.start..it.end }
