@@ -8,22 +8,39 @@ permissions:
   contents: read
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: SunsetTV
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
       - name: Build, lint and unit tests
-        run: gradle :app:assembleDebug :app:lintDebug :app:testDebugUnitTest --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug :app:lintDebug :app:testDebugUnitTest --no-daemon --stacktrace 2>&1 | tee build.log
+      - name: Publish build diagnostics
+        if: always()
+        run: |
+          if [ -f build.log ]; then
+            python3 - <<'PYCODE'
+          import os
+          from pathlib import Path
+          lines = Path('build.log').read_text().splitlines()
+          errors = [l for l in lines if l.startswith('e:') or 'error:' in l or 'Error:' in l or 'FAIL' in l]
+          text = '\n'.join(errors if errors else lines[-60:])[-50000:]
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write('```text\n' + text + '\n```\n')
+          for line in errors[:20]:
+              print('::error::' + line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PYCODE
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: SunsetTV-debug-apk
