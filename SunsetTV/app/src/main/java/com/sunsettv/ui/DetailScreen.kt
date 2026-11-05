@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -32,6 +33,7 @@ import kotlinx.coroutines.delay
 fun DetailScreen(m: Media, api: Xtream?, fav: Boolean, onFav: () -> Unit, onPlay: (url: String, title: String) -> Unit) {
     var d by remember(m) { mutableStateOf<Detail?>(null) }
     var sIdx by remember(m) { mutableStateOf(0) }
+    val compact = LocalConfiguration.current.screenWidthDp < 700
     val fr = remember { FocusRequester() }
     LaunchedEffect(m) { d = if (api != null) runCatching { api.detail(m) }.getOrNull() else null }
     LaunchedEffect(m) { delay(200); runCatching { fr.requestFocus() } } // foco inicial no Play
@@ -55,11 +57,11 @@ fun DetailScreen(m: Media, api: Xtream?, fav: Boolean, onFav: () -> Unit, onPlay
 
         // Lado esquerdo: informações
         LazyColumn(
-            Modifier.fillMaxHeight().fillMaxWidth(0.62f),
+            Modifier.fillMaxHeight().fillMaxWidth(if (compact) 1f else 0.70f),
             contentPadding = PaddingValues(start = 32.dp, top = 40.dp, bottom = 40.dp, end = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item { Text(m.name, color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            item { Text(m.name, color = Color.White, fontSize = if (compact) 28.sp else 44.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis) }
             item { Text(info, color = Color(0xFFFFB347), fontSize = 16.sp) }
             item {
                 Text(
@@ -68,16 +70,16 @@ fun DetailScreen(m: Media, api: Xtream?, fav: Boolean, onFav: () -> Unit, onPlay
                 )
             }
             item {
-                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Pill("▶  Assistir", true, Modifier.focusRequester(fr)) { playUrl?.let { onPlay(it, m.name) } }
-                    Pill(if (fav) "★  Nos favoritos" else "☆  Favoritos", false) { onFav() }
+                LazyRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item { Pill("▶  Assistir", true, Modifier.focusRequester(fr)) { playUrl?.let { onPlay(it, m.name) } } }
+                    item { Pill(if (fav) "★  Nos favoritos" else "☆ Favoritos", false) { onFav() } }
                 }
             }
             if (m.series && seasons.isNotEmpty()) {
                 item { Title("Temporadas") }
                 item {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
-                        itemsIndexed(seasons) { i, s -> Pill("Season ${s.number}", i == sIdx) { sIdx = i } }
+                        itemsIndexed(seasons) { i, s -> Pill("Temporada ${s.number}", i == sIdx) { sIdx = i } }
                     }
                 }
                 item { Title("Episódios") }

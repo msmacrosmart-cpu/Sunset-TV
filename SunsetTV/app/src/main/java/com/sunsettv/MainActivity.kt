@@ -46,7 +46,13 @@ fun App() {
         BackHandler(playing == null && detail != null) { detail = null }
         val p = playing; val l = lib
         when {
-            p != null -> PlayerScreen(p)
+            p != null -> {
+                val channels = l?.live.orEmpty()
+                val index = channels.indexOf(p)
+                PlayerScreen(p, { playing = null },
+                    if (index >= 0 && channels.size > 1) ({ playing = channels[(index - 1 + channels.size) % channels.size] }) else null,
+                    if (index >= 0 && channels.size > 1) ({ playing = channels[(index + 1) % channels.size] }) else null)
+            }
             l == null -> LoginScreen { lib = it }
             else -> Shell(tab, { tab = it; detail = null }) {
                 val d = detail
@@ -54,9 +60,10 @@ fun App() {
                     DetailScreen(d, l.api, key(d) in favs, { toggleFav(d) }) { url, title -> play(d, url, title) }
                 } else when (tab) {
                     Tab.Home -> HomeScreen(l.live) { playing = it }
-                    Tab.Movies -> BrowseScreen("Movies", l.movies, recent.filter { !it.series }) { detail = it }
-                    Tab.Series -> BrowseScreen("Series", l.series, recent.filter { it.series }) { detail = it }
+                    Tab.Movies -> BrowseScreen("Filmes", l.movies, recent.filter { !it.series }) { detail = it }
+                    Tab.Series -> BrowseScreen("Séries", l.series, recent.filter { it.series }) { detail = it }
                     Tab.Live -> LiveScreen(l) { playing = it }
+                    Tab.Settings -> SettingsScreen { playing = null; detail = null; lib = null; recent = emptyList(); tab = Tab.Home }
                 }
             }
         }
